@@ -58,6 +58,9 @@ export function getUserProfile () {
         if (!code) {
           throw new Error('Username is null')
         }
+        if (code.includes('#{') || code.includes('!{')) {
+          throw new Error('Unsafe code execution blocked')
+        }
         const singleQuoteRegex = /^'(?:[^'\\]|\\.)*'$/
         const doubleQuoteRegex = /^"(?:[^"\\]|\\.)*"$/
         const backtickRegex = /^`(?:[^`\\$]|\\.|\$(?!{))*`$/
@@ -73,7 +76,11 @@ export function getUserProfile () {
         if (!isSafe) {
           throw new Error('Unsafe code execution blocked')
         }
-        username = eval(code) // eslint-disable-line no-eval
+        const evaluated = eval(code) // eslint-disable-line no-eval
+        if (typeof evaluated === 'string' && (evaluated.includes('#{') || evaluated.includes('!{'))) {
+          throw new Error('Unsafe code execution blocked')
+        }
+        username = String(evaluated)
       } catch (err) {
         username = '\\' + username
       }
@@ -85,6 +92,7 @@ export function getUserProfile () {
     const theme = themes[themeKey] || themes['bluegrey-lightgreen']
 
     if (username) {
+      username = String(username).replace(/(?<!\\)#{/g, '\\#{').replace(/(?<!\\)!{/g, '\\!{')
       template = template.replace(/_username_/g, username)
     }
     template = template.replace(/_emailHash_/g, security.hash(user?.email))
